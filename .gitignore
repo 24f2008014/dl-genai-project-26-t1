@@ -1,0 +1,17 @@
+__pycache__/
+.ipynb_checkpoints
+.env
+.venv
+env/
+venv/
+wandb/
+
+# Output folders
+data/*/
+precomputed/
+output/
+
+# Output files
+*.npz
+*.npy
+*.wav

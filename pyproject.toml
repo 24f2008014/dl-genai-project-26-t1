@@ -1,0 +1,19 @@
+[project]
+name = "dl-genai-project-26-t1"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "jupyter>=1.1.1",
+    "librosa>=0.11.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.3.5",
+    "pandas>=3.0.0",
+    "scipy>=1.17.0",
+    "soundfile>=0.13.1",
+    "torch>=2.10.0",
+    "torchvision>=0.25.0",
+    "tqdm>=4.67.3",
+    "wandb>=0.25.0",
+]
