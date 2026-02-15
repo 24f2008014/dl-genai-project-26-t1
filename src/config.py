@@ -13,6 +13,9 @@ NOISES = [p for p in Path(NOISE_DIR).iterdir() if p.is_file]
 OUT_DIR = "precomputed"
 TEST_DIR = "data/messy_mashup/mashups"
 CHECKPOINTS_DIR = "checkpoints"
+TRAIN_STATS_PATH = "precomputed/train_stats.npz"
+
+WANDB_PROJECT_NAME = "24f2008014-t12026"
 
 GENRES = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"]
 SONGS_BY_GENRE = dict()
