@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 import src.config as config
 
-def compute_mel_mean_std(mel_paths, n_mels=128):
+def compute_mel_mean_std(mel_paths, n_mels=config.N_MELS):
     sum_bins = np.zeros(n_mels, dtype=np.float64)
     sumsq_bins = np.zeros(n_mels, dtype=np.float64)
     total_frames = 0
