@@ -21,6 +21,10 @@ for g in GENRES:
 genre_to_idx = {g: i for i, g in enumerate(GENRES)}
 idx_to_genre = {i: g for i, g in enumerate(GENRES)}
 
+# Test set log-mel statistics
+TEST_RMS_MEAN = -19.238
+TEST_RMS_STDEV = 4.562
+
 # Training params
 BATCH_SIZE = 32
 LR = 1e-4
