@@ -1,16 +1,18 @@
 from pathlib import Path
 
 SR = 22050 # Sampling rate
-TARGET_DURATION = 30.0 # Output duration
+TARGET_DURATION = 30.0 # Output duration, in seconds
 N_MELS = 128 # Number of mel bands to generate
 N_FFT = 2048 # FFT length
 HOP_LENGTH = 512 # Distance between consecutive FFTs
-EPS = 1e-8 # Avoid divide-by-zero errors
+EPS = 1e-8 # Epsilon value to avoid divide-by-zero errors
 
 STEMS_DIR = "data/messy_mashup/genres_stems"
 NOISE_DIR = "data/messy_mashup/ESC-50-master/audio"
 NOISES = [p for p in Path(NOISE_DIR).iterdir() if p.is_file]
 OUT_DIR = "precomputed"
+TEST_DIR = "data/messy_mashup/mashups"
+CHECKPOINTS_DIR = "checkpoints"
 
 GENRES = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"]
 SONGS_BY_GENRE = dict()
