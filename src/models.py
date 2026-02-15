@@ -3,6 +3,11 @@ from torchvision import models
 import torch.nn as nn
 
 class ResNet(nn.Module):
+    """
+    Input: (B, 1, n_mels, T)
+    
+    Output: logits (B, num_classes)
+    """
     def __init__(self, num_classes=10, pretrained=True, freeze_backbone=False):
         super().__init__()
         res = models.resnet18(weights="DEFAULT" if pretrained else None)
@@ -30,7 +35,7 @@ class ResNet(nn.Module):
                     m.eval()
 
         feat_dim = self.backbone.fc.in_features
-        self.backbone.fc = nn.Identity()
+        self.backbone.fc = nn.Identity() # Remove final FC layer from backbone
         self.classifier = nn.Sequential(
             nn.Linear(feat_dim, 512),
             nn.ReLU(inplace=True),
@@ -38,17 +43,23 @@ class ResNet(nn.Module):
             nn.Linear(512, num_classes)
         )
 
-    def forward(self, x):
-        features = self.backbone(x)
-        logits = self.classifier(features)
+    def forward(self, x: torch.Tensor, return_features=False) -> torch.Tensor:
+        features = self.backbone(x) # (B, feat_dim)
+        if return_features:
+            return features
+        logits = self.classifier(features) # (B, num_classes)
         return logits
     
 class EffNetB0(nn.Module):
+    """
+    Input: (B, 1, n_mels, T)
+    
+    Output: logits (B, num_classes)
+    """
     def __init__(self, num_classes=10, pretrained=True, freeze_backbone=False):
         super().__init__()
         self.backbone = models.efficientnet_b0(weights="DEFAULT" if pretrained else None)
         first_conv = self.backbone.features[0][0]
-
         new_conv = nn.Conv2d(
             in_channels=1,
             out_channels=first_conv.out_channels,
@@ -59,7 +70,7 @@ class EffNetB0(nn.Module):
         )
 
         with torch.inference_mode():
-            old_w = first_conv.weight  # shape (out_ch, 3, k, k)
+            old_w = first_conv.weight  # (out_ch, 3, k, k)
             new_conv.weight[:] = old_w.mean(dim=1, keepdim=True)
             if first_conv.bias is not None:
                 new_conv.bias[:] = first_conv.bias
@@ -84,16 +95,14 @@ class EffNetB0(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, return_features=False) -> torch.Tensor:
-        """
-        x: (B, 1, H, W) single-channel mel inputs
-        returns logits (B, num_classes)
-        """
-        feats = self.backbone(x)         # (B, feat_dim)
+        # x: (B, 1, H, W)
+        features = self.backbone(x) # (B, feat_dim)
         if return_features:
-            return feats
-        logits = self.classifier(feats)  # (B, num_classes)
+            return features
+        logits = self.classifier(features) # (B, num_classes)
         return logits
-    
+
+# For defining the scratch CNN
 class ConvBlock(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
@@ -109,26 +118,27 @@ class ConvBlock(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-class SimpleCNN(nn.Module):
+class ScratchCNN(nn.Module):
     """
-    Simple CNN for log-mel spectrograms.
     Input: (B, 1, n_mels, T)
+
     Output: logits (B, num_classes)
     """
     def __init__(self, num_classes=10, in_ch=1, base_ch=32, dropout=0.4):
         super().__init__()
-        # small / medium config: base_ch 32 -> 64 -> 128 -> 256
+        # base_ch: 32 -> 64 -> 128 -> 256
         self.block1 = ConvBlock(in_ch, base_ch)
         self.block2 = ConvBlock(base_ch, base_ch*2)
         self.block3 = ConvBlock(base_ch*2, base_ch*4)
-        # optional extra conv to reduce spatial dims gently
+        # Extra conv layer to reduce spatial dimensions
         self.conv4 = nn.Sequential(
             nn.Conv2d(base_ch*4, base_ch*8, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(base_ch*8),
             nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((1,1))   # output (B, C, 1,1)
+            nn.AdaptiveAvgPool2d((1,1))   # (B, C, 1, 1)
         )
-        feat_dim = base_ch*8
+
+        feat_dim = base_ch * 8
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(feat_dim, 512),
@@ -136,6 +146,7 @@ class SimpleCNN(nn.Module):
             nn.Dropout(dropout*0.5),
             nn.Linear(512, num_classes)
         )
+
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
@@ -145,11 +156,11 @@ class SimpleCNN(nn.Module):
                     nn.init.zeros_(m.bias)
 
     def forward(self, x):
-        # x: (B,1,n_mels,T)
+        # x: (B, 1, n_mels, T)
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
-        x = self.conv4(x)               # (B, C, 1, 1)
-        x = x.view(x.size(0), -1)       # (B, feat_dim)
+        x = self.conv4(x) # (B, C, 1, 1)
+        x = x.view(x.size(0), -1) # (B, feat_dim)
         logits = self.classifier(x)
         return logits
