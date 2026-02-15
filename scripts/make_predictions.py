@@ -1,11 +1,12 @@
+import numpy as np
+from pathlib import Path
+import pandas as pd
+import torch
 import src.config as config
 from src.dataset import TestDataset
-from src.models import ResNet, EffNetB0, ScratchCNN
-import numpy as np
-import pandas as pd
-from pathlib import Path
-import torch
 from src.infer import make_predictions, ensemble_predictions
+from src.models import ResNet, EffNetB0, ScratchCNN
+from src.utils import get_train_stats
 
 # Create the 3 model instances and load their weights
 resnet_finetuned = ResNet(num_classes=10, freeze_backbone=False)
@@ -20,16 +21,13 @@ scratch_cnn = ScratchCNN(num_classes=10)
 ckpt = torch.load(Path(config.CHECKPOINTS_DIR) / "scratchcnn.ckpt", map_location="cpu", weights_only=False)
 scratch_cnn.load_state_dict(ckpt["model_state"])
 
-# Training set mel bin-wise mean and standard deviation
-stats = np.load(Path(config.OUT_DIR)/"train_stats.npz", mmap_mode="r")
-mean = stats["mean"]
-std = stats["std"]
-
+mean, std = get_train_stats(config.TRAIN_STATS_PATH) # Training set mel bin-wise mean and standard deviation
 test_files = sorted([f for f in Path(config.TEST_DIR).iterdir() if f.is_file()])
 test_set = TestDataset(test_files, mean=mean, std=std)
 
+models = [effnet_finetuned, resnet_finetuned, scratch_cnn]
 weights = [0.4, 0.4, 0.2]
-preds = ensemble_predictions([effnet_finetuned, resnet_finetuned, scratch_cnn], test_set, weights=None, num_workers=4)
+preds = ensemble_predictions(models, test_set, weights=None, num_workers=4)
 # preds = make_predictions(effnet_finetuned, test_set)
 
 rows = []
