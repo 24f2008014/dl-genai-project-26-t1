@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import librosa
-import config
+import src.config as config
 import matplotlib.pyplot as plt
 
 def load_audio(path: str, sr=config.SR):

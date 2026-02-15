@@ -4,9 +4,9 @@ from functools import partial
 from multiprocessing import Pool
 import numpy as np
 import random
-import config
+import src.config as config
 import json
-from audio import load_audio, pad_or_trim, add_noise, normalize, log_mel, scale_to_target_rms, time_stretch
+from src.audio import load_audio, pad_or_trim, add_noise, normalize, log_mel, scale_to_target_rms, time_stretch
 
 def load_stems(song_dirs: list[str]):
     """Return a stacked array of fixed-duration waveforms of the given stems."""

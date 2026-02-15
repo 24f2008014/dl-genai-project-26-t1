@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-import config
+import src.config as config
 
 def compute_mel_mean_std(mel_paths, n_mels=128):
     sum_bins = np.zeros(n_mels, dtype=np.float64)

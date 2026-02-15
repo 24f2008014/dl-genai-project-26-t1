@@ -5,11 +5,11 @@ import torch.nn as nn
 from tqdm import tqdm
 from sklearn.metrics import f1_score, accuracy_score
 from torch.utils.data import DataLoader
-import config
+import src.config as config
 import os
-from models import ResNet, EffNetB0, SimpleCNN
-from dataset import mashup_collate_fn
-from utils import seed_worker
+from src.models import ResNet, EffNetB0, ScratchCNN
+from src.dataset import mashup_collate_fn
+from src.utils import seed_worker
 
 def spec_augment(mel, freq_masks=2, freq_mask_width=15, time_masks=2, time_mask_ratio=0.2):
     """

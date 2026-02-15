@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 import torch
-from audio import load_audio, pad_or_trim, log_mel
+from src.audio import load_audio, pad_or_trim, log_mel
 from torch.utils.data import Dataset
 
 class PrecomputedDataset(Dataset):
