@@ -5,6 +5,7 @@ __pycache__/
 env/
 venv/
 wandb/
+.vscode/
 
 # Output folders
 data/*/
