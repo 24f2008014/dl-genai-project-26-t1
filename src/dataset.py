@@ -3,7 +3,7 @@ import json
 import numpy as np
 import torch
 from src.audio import load_audio, pad_or_trim, log_mel
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 class PrecomputedDataset(Dataset):
     def __init__(self, idx_file, mean, std, mmap=True): # If mmap, will read np arrays from disk instead of loading all into memory
@@ -78,3 +78,32 @@ class TestDataset(Dataset):
             "path": self.files[idx],
             "mel": mel_t
         }
+
+def test_collate_fn(batch):
+    mels = [item["mel"] for item in batch]
+    ids = [item["id"] for item in batch]
+    paths = [item["path"] for item in batch]
+    mels_tensor = torch.stack(mels, dim=0)
+
+    return {
+        "mel": mels_tensor,
+        "id": ids,
+        "path": paths
+    }
+
+def get_embeddings(model: torch.nn.Module, loader: DataLoader, device=None):
+    """Get just the model's feature embeddings for a dataset."""
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device(device)
+    model.to(device)
+    model.eval()   
+    embeddings = []
+    
+    with torch.inference_mode():
+        for batch in loader:
+            mel = batch["mel"].to(device, non_blocking=True)
+            features = model(mel, return_features=True)
+            embeddings.append(features.detach().cpu())
+    
+    return torch.cat(embeddings, dim=0).numpy()
