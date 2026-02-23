@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, accuracy_score
 from torch.utils.data import DataLoader
 import src.config as config
 import os
-from src.models import ResNet, EffNetB0, ScratchCNN
+from src.models import ResNet, EffNetB0, ScratchCNN, ScratchCRNN
 from src.dataset import PrecomputedDataset, mashup_collate_fn
 from src.utils import seed_worker, get_train_stats
 import wandb
@@ -153,10 +153,10 @@ def validate_loop(model: torch.nn.Module, loader: DataLoader, device, loss_fn=No
 
 def make_optimizer(
     model: torch.nn.Module,
-    backbone_lr: float,
-    head_lr: float,
-    weight_decay: float,
-    lr: float,
+    backbone_lr=1e-4,
+    head_lr=3e-4,
+    weight_decay=1e-4,
+    lr=3e-4,
     single_lr=False,
     ):
     """Return a new AdamW optimizer."""
@@ -211,10 +211,12 @@ def train_sweep_run(model_name="effnet", n_epochs=10, num_workers=8, batch_size=
         model = ResNet(num_classes=10, pretrained=True, freeze_backbone=cfg.freeze_backbone)
     elif model_name == "scratch":
         model = ScratchCNN(num_classes=10, in_ch=1, base_ch=32)
+    elif model_name == "crnn":
+        model = ScratchCRNN(num_classes=10, lstm_hidden=128, lstm_layers=1)
     model = model.to(device)
 
     # Single LR for ScratchCNN; different LRs for backbone and head for resnet/effnet
-    if model_name == "scratch":
+    if (model_name == "scratch") or (model_name == "crnn"):
         optimizer = make_optimizer(model=model, lr=cfg.lr, single_lr=True)
     else:
         optimizer = make_optimizer(model=model, backbone_lr=cfg.backbone_lr, head_lr=cfg.head_lr, weight_decay=cfg.weight_decay)
@@ -292,11 +294,13 @@ def train_run(model_name, i, cfg, n_epochs=30, num_workers=8, batch_size=16):
         model = ResNet(num_classes=10, pretrained=True, freeze_backbone=cfg["freeze_backbone"])
     elif model_name == "scratch":
         model = ScratchCNN(num_classes=10, in_ch=1, base_ch=32)
+    elif model_name == "crnn":
+        model = ScratchCRNN(num_classes=10, lstm_hidden=128, lstm_layers=1)
     model = model.to(device)
 
     # Single LR for ScratchCNN; different LRs for backbone and head for resnet/effnet
-    if model_name == "scratch":
-        optimizer = make_optimizer(model=model, lr=cfg["lr"], single_lr=True)
+    if (model_name == "scratch") or (model_name == "crnn"):
+        optimizer = make_optimizer(model=model, lr=cfg["lr"], head_lr=cfg["lr"], backbone_lr=cfg["lr"], weight_decay=cfg["weight_decay"], single_lr=True)
     else:
         optimizer = make_optimizer(model=model, backbone_lr=cfg["backbone_lr"], head_lr=cfg["head_lr"], weight_decay=cfg["weight_decay"])
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
@@ -334,5 +338,6 @@ def train_run(model_name, i, cfg, n_epochs=30, num_workers=8, batch_size=16):
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             torch.save({"model_state": model.state_dict()}, os.path.join(config.OUT_DIR, f"{model_name}_{i}.ckpt"))
+            print("Checkpoint saved.")
 
     print(f"END. Run {i} best val macro F1: {best_val_f1:.4f}")
