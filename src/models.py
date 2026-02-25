@@ -1,6 +1,7 @@
 import torch
 from torchvision import models
 import torch.nn as nn
+import torch.nn.functional as F
 
 class ResNet(nn.Module):
     """
@@ -239,4 +240,87 @@ class ScratchCRNN(nn.Module):
         feat = lstm_out.mean(dim=1) # (B, 2*lstm_hidden)
 
         logits = self.classifier(feat)
+        return logits
+
+class AttentionPool(nn.Module):
+    """
+    Temporal attention pooling:
+      input: (B, T, C) or (B, C, T)
+      output: (B, C)
+    """
+    def __init__(self, in_dim, hidden_dim=None, dropout=0.1):
+        super().__init__()
+        if hidden_dim is None:
+            hidden_dim = max(64, in_dim // 2)
+        self.attn = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, 1) # scalar score per frame
+        )
+
+    def forward(self, x):
+        # x: (B, T, C)
+        scores = self.attn(x) # (B, T, 1)
+        scores = scores.squeeze(-1) # (B, T)
+        weights = F.softmax(scores, dim=1) # (B, T)
+        weights = weights.unsqueeze(-1) # (B, T, 1)
+        out = (x * weights).sum(dim=1) # (B, C)
+        return out, weights.squeeze(-1) # (B,C), (B,T)
+
+class ScratchCNNAttention(nn.Module):
+    """
+    CNN front-end + temporal attention pooling head.
+    Input: (B, 1, n_mels, T)
+    Output: logits (B, num_classes)
+    """
+    def __init__(self, num_classes=10, in_ch=1, base_ch=32, dropout=0.4):
+        super().__init__()
+        self.block1 = ConvBlock(in_ch, base_ch)
+        self.block2 = ConvBlock(base_ch, base_ch*2)
+        self.block3 = ConvBlock(base_ch*2, base_ch*4)
+        # retain time
+        self.conv_time = nn.Sequential(
+            nn.Conv2d(base_ch*4, base_ch*8, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(base_ch*8),
+            nn.ReLU(inplace=True)
+        )
+
+        # attention pooling: input dimension = channels after conv_time
+        attn_in_dim = base_ch * 8
+        self.attn_pool = AttentionPool(attn_in_dim, hidden_dim=attn_in_dim//2, dropout=0.15)
+
+        # classifier uses attention-pooled features
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(attn_in_dim, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout * 0.5),
+            nn.Linear(512, num_classes)
+        )
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+
+    def forward(self, x, return_attention=False):
+        # x: (B, 1, n_mels, T)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.conv_time(x) # (B, C, F, T)
+
+        # mean over frequency -> (B, C, T)
+        x = x.mean(dim=2) # (B, C, T)
+        x = x.permute(0, 2, 1).contiguous() # (B, T, C)
+
+        pooled, attn_weights = self.attn_pool(x) # (B, C), (B, T)
+
+        logits = self.classifier(pooled)
+        if return_attention:
+            return logits, attn_weights
         return logits
