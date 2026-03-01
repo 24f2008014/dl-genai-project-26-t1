@@ -169,7 +169,8 @@ class ScratchCNN(nn.Module):
 class ScratchCRNN(nn.Module):
     """
     CRNN: Conv front-end (ScratchCNN) + biGRU head + classifier.
-    Input: (B, 1, n_mels, T), Output: logits (B, num_classes)
+    Input: (B, 1, n_mels, T)
+    Output: logits (B, num_classes)
     """
     def __init__(self, num_classes=10, in_ch=1, base_ch=32, lstm_hidden=128, lstm_layers=1, dropout=0.4):
         super().__init__()
@@ -200,7 +201,7 @@ class ScratchCRNN(nn.Module):
                    batch_first=True,
                    bidirectional=True)
 
-        # classifier: pool LSTM outputs in time (mean) -> MLP
+        # Pool LSTM outputs in time (mean), then pass to MLP
         feat_dim = lstm_hidden * 2 # bidirectional
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
@@ -219,24 +220,19 @@ class ScratchCRNN(nn.Module):
                     nn.init.zeros_(m.bias)
 
     def forward(self, x):
-        """
-        x: (B, 1, n_mels, T)
-        returns logits: (B, num_classes)
-        """
-        x = self.block1(x)          # (B, C1, F1, T1)
-        x = self.block2(x)          # (B, C2, F2, T2)
-        x = self.block3(x)          # (B, C3, F3, T3)
-        x = self.conv_time(x)       # (B, C4, F3, T3)  (keep time axis)
+        x = self.block1(x) # (B, C1, F1, T1)
+        x = self.block2(x) # (B, C2, F2, T2)
+        x = self.block3(x) # (B, C3, F3, T3)
+        x = self.conv_time(x) # (B, C4, F3, T3)  (keep time axis)
 
-        # pool across frequency to produce per-frame features
-        # x.mean(dim=2) collapses frequency dimension -> (B, C4, T3)
-        x = x.mean(dim=2)           # (B, C, T)
-        # transpose to (B, T, C) for LSTM
+        # Collapse frequency so (B, C4, T3)
+        x = x.mean(dim=2) # (B, C, T)
+        # Transpose to (B, T, C) for LSTM
         x = x.permute(0, 2, 1).contiguous()  # (B, T, C)
 
         # LSTM expects (B, T, input_size)
         lstm_out, _ = self.lstm(x)  # (B, T, 2*lstm_hidden)
-        # temporal pooling: mean over time
+        # Temporal pooling: mean over time
         feat = lstm_out.mean(dim=1) # (B, 2*lstm_hidden)
 
         logits = self.classifier(feat)
@@ -244,9 +240,9 @@ class ScratchCRNN(nn.Module):
 
 class AttentionPool(nn.Module):
     """
-    Temporal attention pooling:
-      input: (B, T, C) or (B, C, T)
-      output: (B, C)
+    Temporal attention pooling.
+    Input: (B, T, C) or (B, C, T)
+    Output: (B, C)
     """
     def __init__(self, in_dim, hidden_dim=None, dropout=0.1):
         super().__init__()
@@ -279,18 +275,18 @@ class ScratchCNNAttention(nn.Module):
         self.block1 = ConvBlock(in_ch, base_ch)
         self.block2 = ConvBlock(base_ch, base_ch*2)
         self.block3 = ConvBlock(base_ch*2, base_ch*4)
-        # retain time
+        # Keep time axis
         self.conv_time = nn.Sequential(
             nn.Conv2d(base_ch*4, base_ch*8, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(base_ch*8),
             nn.ReLU(inplace=True)
         )
 
-        # attention pooling: input dimension = channels after conv_time
+        # Input dim = channels after conv_time
         attn_in_dim = base_ch * 8
         self.attn_pool = AttentionPool(attn_in_dim, hidden_dim=attn_in_dim//2, dropout=0.15)
 
-        # classifier uses attention-pooled features
+        # Classifier uses attention-pooled features
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(attn_in_dim, 512),
@@ -314,7 +310,7 @@ class ScratchCNNAttention(nn.Module):
         x = self.block3(x)
         x = self.conv_time(x) # (B, C, F, T)
 
-        # mean over frequency -> (B, C, T)
+        # Mean over frequency so (B, C, T)
         x = x.mean(dim=2) # (B, C, T)
         x = x.permute(0, 2, 1).contiguous() # (B, T, C)
 
