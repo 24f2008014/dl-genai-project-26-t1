@@ -22,10 +22,10 @@ Please note that this repository uses `uv` for package management, not `pip` or 
 - `/data`
     - `README.md` - Instructions on how to include the raw data.
 - `/notebooks`
-    - `check_synth_distribution` - 
-    - `eda` - Basic exploratory data analysis of the datasets.
-    - `kaggle_infer` - The notebook I used to make Kaggle submissions.
-    - `milestones/milestone{1..5}.ipynb` - Self-contained notebooks for each of the 5 milestone assignments.
+    - `eda.ipynb` - Exploratory data analysis.
+    - `kaggle_infer.ipynb` - The notebook I used to make Kaggle submissions.
+    - `model_analysis.ipynb` - Model performance and error analysis.
+    - `/milestones` - Contains notebooks for the milestone assignments.
 - `/reports`
     - `project_report.pdf` - The full project report.
 - `/scripts`
