@@ -60,7 +60,7 @@ class TestDataset(Dataset):
         self.files = [str(p) for p in file_list]
         # Reshape to (1, n_mels, 1) so broadcasting with (B, 1, n_mels, T) works
         self.mean = torch.tensor(mean, dtype=torch.float32).view(1, -1, 1)
-        self.std  = torch.tensor(std, dtype=torch.float32).view(1, -1, 1)
+        self.std = torch.tensor(std, dtype=torch.float32).view(1, -1, 1)
 
     def __len__(self):
         return len(self.files)
