@@ -27,7 +27,7 @@ Please note that this repository uses `uv` for package management, not `pip` or 
     - `model_analysis.ipynb` - Model performance and error analysis.
     - `/milestones` - Contains notebooks for the milestone assignments.
 - `/reports`
-    - `project_report.pdf` - The full project report.
+    - `24f2008014_DG_T12026.pdf` - The full project report.
 - `/scripts`
     - `make_predictions.py` - Make predictions on the test set using the best model checkpoints.
     - `run_sweep.py` - Run a hyperparameter sweep using Wandb for logging.
